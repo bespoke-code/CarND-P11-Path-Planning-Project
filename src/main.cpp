@@ -24,8 +24,8 @@ double rad2deg(double x) { return x * 180 / pi(); }
 // else the empty string "" will be returned.
 string hasData(string s) {
   auto found_null = s.find("null");
-  auto b1 = s.find_first_of("[");
-  auto b2 = s.find_first_of("}");
+  auto b1 = s.find_first_of('[');
+  auto b2 = s.find_first_of('}');
   if (found_null != string::npos) {
     return "";
   } else if (b1 != string::npos && b2 != string::npos) {
@@ -211,7 +211,7 @@ int main() {
 
       auto s = hasData(data);
 
-      if (s != "") {
+      if (!s.empty()) {
         auto j = json::parse(s);
         
         string event = j[0].get<string>();
