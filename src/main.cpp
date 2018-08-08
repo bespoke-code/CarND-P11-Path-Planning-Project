@@ -8,6 +8,10 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "MovementPredictor.hs"
+#include "PathPlanner.h"
+#include "BehaviourPlanner.h"
+#include "MovementPredictor.h"
 
 using namespace std;
 
@@ -165,6 +169,9 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 int main() {
   uWS::Hub h;
+  MovementPredictor predictor;
+  PathPlanner pathPlanner;
+  BehaviourPlanner behaviourPlanner;
 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
   vector<double> map_waypoints_x;
@@ -237,14 +244,43 @@ int main() {
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
-          	json msgJson;
 
-          	vector<double> next_x_vals;
-          	vector<double> next_y_vals;
+            // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
 
+            // TODO: Predict the movement of each car currently in sensor fusion
+            std::vector<auto> movement(sizeof(sensor_fusion)); // TODO: find sensor fusion type!
+            for(auto car: sensor_fusion) {
+                std::vector<double> car_frenet(2);
+                car_frenet.push_back(car[0]);
+                car_frenet.push_back(car[1]);// TODO: Check
+                movement.push_back(predictor.predict(car_frenet));
+            }
+            // TODO: Generate trajectories for each car
+            for(auto car: movement) {
+                pathPlanner.generatePath(car);
+            }
+            // TODO: Plan car's behaviour and generate global waypoints
+            std::vector<double> behaviour = behaviourPlanner.plan(); // TODO: Add arguments! Typedef struct <T,Q> ?
+            // TODO: Interpolate a path using the global waypoints
+            double car_intention = behaviour[0]; // TODO: Replace with ENUM type
+            std::vector<double> global_waypoints(behaviour.size());
+            for(int i=1; i<behaviour.size(); ++i) {
+                global_waypoints.push_back(behaviour[i]);
+            }
+            std::vector<double> carPath = pathPlanner.generatePath(global_waypoints); // TODO: CHECK SIGNATURE!
 
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-          	msgJson["next_x"] = next_x_vals;
+            json msgJson;
+
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
+
+            for(int i=0; i<carPath.size(); i+=2) {
+                // TODO: Convert from frenet to XY if necessary here!
+                next_x_vals.push_back(carPath[i]);
+                next_y_vals.push_back(carPath[i+1]);
+            }
+
+            msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
           	auto msg = "42[\"control\","+ msgJson.dump()+"]";
