@@ -3,3 +3,7 @@
 //
 
 #include "BehaviourPlanner.h"
+
+BehaviourPlanner::BehaviourPlanner() {
+
+}

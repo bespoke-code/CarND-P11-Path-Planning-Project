@@ -7,3 +7,7 @@
 PathPlanner::PathPlanner() {
 
 }
+
+std::vector<double> PathPlanner::generatePath(const std::vector<double> &waypoints) {
+    return std::vector<double>();
+}
