@@ -257,6 +257,42 @@ int main() {
 
                     int prev_size = previous_path_x.size();
 
+                    //// SENSOR PART
+                    bool too_close = false;
+
+                    if(prev_size > 0) {
+                        car_s = end_path_s;
+                    }
+
+                    float d;
+                    for(int i=0; i<sensor_fusion.size(); ++i) {
+                        // Car in my lane
+                        d = sensor_fusion[i][6]; // other car's D value
+                        if(d < (2+4*lane+2) && d > (2+4*lane-2)) {
+                            double vx = sensor_fusion[i][3]; // other car's Vx value
+                            double vy = sensor_fusion[i][4]; // other car's Vy value
+                            double check_speed = std::sqrt(vx*vx + vy*vy);
+                            double check_car_s = sensor_fusion[i][5]; // other car's S value
+
+                            // if using previous points can project s value out
+                            check_car_s += ((double)prev_size*0.02*check_speed); // predicted position 0,02s in the future
+
+                            // check s values greater than mine and s gap
+                            if((check_car_s > car_s) && ((check_car_s-car_s) < 30.0)) {
+                                // Do some logic here, lower reference velocity so we don't crash into the car in front of us
+                                // Could also flag to try to change lanes
+                                ref_speed = 30.0; // MPH
+                                too_close = true;
+                            }
+                        }
+                    }
+
+                    if(too_close) {
+                        ref_speed -= 0.224; // MPH
+                    } else if (ref_speed < 49.65) { // MPH
+                        ref_speed += 0.224; // MPH
+                    }
+
                     double ref_x = car_x;
                     double ref_y = car_y;
                     double ref_yaw = deg2rad(car_yaw);
