@@ -253,21 +253,23 @@ int main() {
                     // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
                     // AARON'S CODE START
                     double lane = 1;
-                    double ref_speed = 49.65;
+                    double ref_speed = 49.65; //MPH
 
                     int prev_size = previous_path_x.size();
 
-                    double ref_x=car_x, ref_y=car_y, ref_yaw=deg2rad(car_yaw);
+                    double ref_x = car_x;
+                    double ref_y = car_y;
+                    double ref_yaw = deg2rad(car_yaw);
 
                     std::vector<double> ptsx;
                     std::vector<double> ptsy;
 
                     // if previous path is almost empty, use the car's reference point as a starting point
                     if(prev_size < 2) {
-                        ptsx.push_back(car_x - std::cos(car_yaw));
+                        ptsx.push_back(car_x - std::cos(car_yaw)); // prev_car_x
                         ptsx.push_back(car_x);
 
-                        ptsy.push_back(car_y - std::sin(car_yaw));
+                        ptsy.push_back(car_y - std::sin(car_yaw)); // prev_car_y
                         ptsy.push_back(car_y);
 
                     } else {
@@ -277,7 +279,7 @@ int main() {
                         double ref_x_prev = previous_path_x[prev_size-2];
                         double ref_y_prev = previous_path_y[prev_size-2];
 
-                        ref_yaw = std::atan2(ref_y - ref_y_prev, ref_x - ref_y_prev);
+                        ref_yaw = std::atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
 
                         // use two points that make the path tangent to the previous path 's end point
                         ptsx.push_back(ref_x_prev);
@@ -301,11 +303,12 @@ int main() {
                     ptsy.push_back(next_wp2[1]);
 
                     for(int i=0; i<ptsx.size(); ++i) {
+                        // Shift car angle to 0 degrees
                         double shift_x = ptsx[i] - ref_x;
                         double shift_y = ptsy[i] - ref_y;
 
                         ptsx[i] = (shift_x * std::cos(0-ref_yaw) - shift_y*std::sin(0-ref_yaw)); // can also use eigen matrix to multiply this
-                        ptsy[i] = (shift_x * std::cos(0-ref_yaw) + shift_y*std::sin(0-ref_yaw));
+                        ptsy[i] = (shift_x * std::sin(0-ref_yaw) + shift_y*std::cos(0-ref_yaw));
                     }
 
                     tk::spline spline;
@@ -320,7 +323,7 @@ int main() {
 
                     // interpolate spline points so that we travel at the reference velocity
                     // TIME INTERVAL BETWEEN POINTS: 0,2 seconds
-                    double target_x = 30;
+                    double target_x = 30.0;
                     double target_y = spline(target_x);
                     double target_dist = std::sqrt(std::pow(target_x, 2) + std::pow(target_y, 2));
 
