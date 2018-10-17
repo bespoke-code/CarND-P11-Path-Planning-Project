@@ -183,6 +183,10 @@ int main() {
     // The max s value before wrapping around the track back to 0
     double max_s = 6945.554;
 
+    // TODO: Parameters!
+    double lane = 1;
+    double ref_speed = 0.0; //MPH
+
     ifstream in_map_(map_file_.c_str(), ifstream::in);
 
     string line;
@@ -205,7 +209,7 @@ int main() {
         map_waypoints_dy.push_back(d_y);
     }
 
-    h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+    h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane, &ref_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                                                                                                          uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
@@ -252,8 +256,6 @@ int main() {
 
                     // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
                     // AARON'S CODE START
-                    double lane = 1;
-                    double ref_speed = 49.65; //MPH
 
                     int prev_size = previous_path_x.size();
 
@@ -264,15 +266,14 @@ int main() {
                         car_s = end_path_s;
                     }
 
-                    float d;
-                    for(int i=0; i<sensor_fusion.size(); ++i) {
+                    for (auto &i : sensor_fusion) {
                         // Car in my lane
-                        d = sensor_fusion[i][6]; // other car's D value
+                        float d = i[6]; // other car's D value
                         if(d < (2+4*lane+2) && d > (2+4*lane-2)) {
-                            double vx = sensor_fusion[i][3]; // other car's Vx value
-                            double vy = sensor_fusion[i][4]; // other car's Vy value
+                            double vx = i[3]; // other car's Vx value
+                            double vy = i[4]; // other car's Vy value
                             double check_speed = std::sqrt(vx*vx + vy*vy);
-                            double check_car_s = sensor_fusion[i][5]; // other car's S value
+                            double check_car_s = i[5]; // other car's S value
 
                             // if using previous points can project s value out
                             check_car_s += ((double)prev_size*0.02*check_speed); // predicted position 0,02s in the future
@@ -283,6 +284,10 @@ int main() {
                                 // Could also flag to try to change lanes
                                 ref_speed = 30.0; // MPH
                                 too_close = true;
+
+                                if(lane == 1) {
+                                    lane = 0;
+                                }
                             }
                         }
                     }
@@ -292,6 +297,8 @@ int main() {
                     } else if (ref_speed < 49.65) { // MPH
                         ref_speed += 0.224; // MPH
                     }
+
+                    //*/
 
                     double ref_x = car_x;
                     double ref_y = car_y;
@@ -343,8 +350,8 @@ int main() {
                         double shift_x = ptsx[i] - ref_x;
                         double shift_y = ptsy[i] - ref_y;
 
-                        ptsx[i] = (shift_x * std::cos(0-ref_yaw) - shift_y*std::sin(0-ref_yaw)); // can also use eigen matrix to multiply this
-                        ptsy[i] = (shift_x * std::sin(0-ref_yaw) + shift_y*std::cos(0-ref_yaw));
+                        ptsx[i] = (shift_x * std::cos(0-ref_yaw) - shift_y * std::sin(0-ref_yaw)); // can also use eigen matrix to multiply this
+                        ptsy[i] = (shift_x * std::sin(0-ref_yaw) + shift_y * std::cos(0-ref_yaw));
                     }
 
                     tk::spline spline;
@@ -361,32 +368,27 @@ int main() {
                     // TIME INTERVAL BETWEEN POINTS: 0,2 seconds
                     double target_x = 30.0;
                     double target_y = spline(target_x);
-                    double target_dist = std::sqrt(std::pow(target_x, 2) + std::pow(target_y, 2));
+                    double target_dist = std::sqrt(target_x*target_x + target_y*target_y);
 
                     double x_add_on = 0;
 
                     // Generate the rest of the points
-                    double N = (target_dist/(0.02*ref_speed/2.24));
-                    double x_pt, y_pt;
-
                     for(int i=1; i<=50-previous_path_x.size(); ++i) {
-                        x_pt = x_add_on + target_x/N;
-                        y_pt = spline(x_pt);
+                        double N = (target_dist/(0.02*ref_speed/2.24));
+                        double x_pt = x_add_on + target_x/N;
+                        double y_pt = spline(x_pt);
 
                         x_add_on = x_pt;
-
                         // transform car to world coordinates
                         double x_ref = x_pt;
                         double y_ref = y_pt;
 
                         x_pt = (x_ref*std::cos(ref_yaw) - y_ref*sin(ref_yaw) + ref_x);
-                        y_pt = (x_ref*std::sin(ref_yaw) - y_ref*cos(ref_yaw) + ref_y);
+                        y_pt = (x_ref*std::sin(ref_yaw) + y_ref*cos(ref_yaw) + ref_y);
 
                         next_x_vals.push_back(x_pt);
                         next_y_vals.push_back(y_pt);
                     }
-
-
                     // AARON'S CODE END
 
 
