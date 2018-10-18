@@ -211,7 +211,7 @@ int main() {
     }
 
     h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane, &ref_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-                                                                                                         uWS::OpCode opCode) {
+                                                                                                                           uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
         // The 2 signifies a websocket event
@@ -252,11 +252,7 @@ int main() {
                     vector<double> next_x_vals;
                     vector<double> next_y_vals;
 
-
-
-
                     // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-                    // AARON'S CODE START
 
                     int prev_size = previous_path_x.size();
 
@@ -298,8 +294,6 @@ int main() {
                     } else if (ref_speed < 49.65) { // MPH
                         ref_speed += 0.224; // MPH
                     }
-
-                    //*/
 
                     double ref_x = car_x;
                     double ref_y = car_y;
@@ -390,25 +384,7 @@ int main() {
                         next_x_vals.push_back(x_pt);
                         next_y_vals.push_back(y_pt);
                     }
-                    // AARON'S CODE END
 
-
-                    // Starter code
-                    // START_STARTER_CODE
-                    /*
-                    double dist_inc = 0.45;
-                    double next_s, next_d;
-                    double next_x, next_y;
-                    next_d = car_d;
-                    for(int i=0; i<50; ++i) {
-                        next_s = car_s + (i+1) * dist_inc;
-                        std::vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                        next_x_vals.push_back(xy[0]);
-                        next_y_vals.push_back(xy[1]);
-                        //next_x_vals.push_back(car_x + (dist_inc*i)*std::cos(deg2rad(car_yaw)));
-                        //next_y_vals.push_back(car_y + (dist_inc*i)*std::sin(deg2rad(car_yaw)));
-                    }
-                    */ //END_STARTER_CODE
 
                     /*
                     // TODO: Predict the movement of each car currently in sensor fusion
@@ -419,10 +395,7 @@ int main() {
                         car_frenet.push_back(car[1]);// TODO: Check
                         movement.push_back(predictor.predict(car_frenet));
                     }
-                    // TODO: Generate trajectories for each car
-                    for(auto car: movement) {
-                        pathPlanner.generatePath(car);
-                    }
+
                     // TODO: Plan car's behaviour and generate global waypoints
                     std::vector<double> behaviour = behaviourPlanner.plan(); // TODO: Add arguments! Typedef struct <T,Q> ?
                     // TODO: Interpolate a path using the global waypoints
