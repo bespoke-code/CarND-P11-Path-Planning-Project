@@ -11,11 +11,12 @@ State::State(double l, double refSpd) {
     this->refSpeed = refSpd;
 }
 
-State::State(double l, bool laneChange, bool matchSpd, double refSpd) {
+State::State(double l, bool laneChange, bool matchSpd, double refSpd, bool tooClose) {
     this->lane = l;
     this->changeLane = laneChange;
     this->matchSpeed = matchSpd;
     this->refSpeed = refSpd;
+    this->tooClose = tooClose;
 }
 
 double State::getLane() {
@@ -32,4 +33,12 @@ bool State::shouldMatchSpeed() {
 
 bool State::shouldDoLaneChange() {
     return changeLane;
+}
+
+void State::updateRefVelocity(double v) {
+    refSpeed = v;
+}
+
+bool State::isCarTooClose() {
+    return tooClose;
 }

@@ -12,13 +12,16 @@ private:
     bool changeLane; // false = keep lane
     bool matchSpeed; // true if speed is to be adjusted according to another car
     double refSpeed; // reference speed at which the car should drive
+    bool tooClose;   // true if a car is too close (<=9m) in the front
 public:
     State(double l, double refSpd);
-    State(double l, bool laneChange, bool matchSpd, double refSpd);
+    State(double l, bool laneChange, bool matchSpd, double refSpd, bool tooClose);
     double getLane();
     double getReferenceVelocity();
     bool shouldMatchSpeed();
     bool shouldDoLaneChange();
+    void updateRefVelocity(double v);
+    bool isCarTooClose();
 };
 
 

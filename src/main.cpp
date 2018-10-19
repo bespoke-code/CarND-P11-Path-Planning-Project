@@ -245,8 +245,8 @@ int main() {
                     double end_path_d = j[1]["end_path_d"];
 
                     // Sensor Fusion Data, a list of all other cars on the same side of the road.
-                    std::vector<std::vector<double>> sensor_fusion = j[1]["sensor_fusion"];
-
+                    //auto sensor_fusion = j[1]["sensor_fusion"];
+                    nlohmann::basic_json<std::map, std::vector, std::string, bool, long, unsigned long, double, std::allocator, nlohmann::adl_serializer> sensor_fusion = j[1]["sensor_fusion"];
                     json msgJson;
 
                     vector<double> next_x_vals;
@@ -260,8 +260,8 @@ int main() {
                     }
 
                     // Get the new car state
-                    State newState = behaviourPlanner.plan(sensor_fusion, state.getLane(), prev_size, car_s);
-
+                    State newState = behaviourPlanner.plan(sensor_fusion, state.getLane(), prev_size, car_s, car_speed);
+                    //State newState = state;
                     // Define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
                     double ref_x = car_x;
                     double ref_y = car_y;
@@ -336,17 +336,20 @@ int main() {
                     double x_add_on = 0;
 
                     double ref_speed = state.getReferenceVelocity();
-                    if(ref_speed > newState.getReferenceVelocity()
-                       && (ref_speed-0.224 > 0)) {
-                        ref_speed -= 0.224; // decelerate
-                    }
-                    if (ref_speed < newState.getReferenceVelocity()
-                        && (ref_speed+0.224 < 49.65)) {
-                        ref_speed += 0.224; // accelerate
-                    }
+
 
                     // Generate the rest of the points
                     for(int i=1; i<=50-previous_path_x.size(); ++i) {
+
+                        if(ref_speed > newState.getReferenceVelocity()
+                           && (ref_speed-0.224 > 0)) {
+                            if(ref_speed >= 30.0 && newState.isCarTooClose()) // avoid slowing too much
+                                ref_speed -= 0.224; //0.224; // decelerate
+                        }
+                        if (ref_speed < newState.getReferenceVelocity()
+                            && (ref_speed+0.224 < 49.65)) {
+                            ref_speed += 0.224; // accelerate
+                        }
 
                         double N = (target_dist/(0.02*ref_speed/2.24));
                         double x_pt = x_add_on + target_x/N;
@@ -363,7 +366,7 @@ int main() {
                         next_x_vals.push_back(x_pt);
                         next_y_vals.push_back(y_pt);
                     }
-
+                    newState.updateRefVelocity(ref_speed);
                     // Set the current car's state to the new state
                     state = newState;
                     msgJson["next_x"] = next_x_vals;

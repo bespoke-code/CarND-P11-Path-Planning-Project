@@ -15,7 +15,7 @@ BehaviourPlanner::BehaviourPlanner() {
     }
 }
 
-State BehaviourPlanner::plan(std::vector<std::vector<double>>& sensor_fusion, double currentLane, int prev_size, double car_s) {
+State BehaviourPlanner::plan(nlohmann::basic_json<std::map, std::vector, std::string, bool, long, unsigned long, double, std::allocator, nlohmann::adl_serializer>& sensor_fusion, double currentLane, int prev_size, double car_s, double currSpeed) {
     // Reset the lane occupancy matrix
     for(int l=0; l<3; ++l) { // lane
         for (auto &seg : lane_occupancy) { // lane segment
@@ -25,10 +25,10 @@ State BehaviourPlanner::plan(std::vector<std::vector<double>>& sensor_fusion, do
 
     // Re-populate the lane occupancy matrix using the sensor fusion data
     // Find the closest car in front and in our lane, if there is one
-    double samelaneCar_s = 0.0;
-    double samelaneCar_v = -1.0;
-    double min_dist = 0.0;
-    std::cout << "Cars on road: " <<  sensor_fusion.size() << std::endl;
+    double samelaneCar_s = 1.0;
+    double samelaneCar_v = 49.65;
+    double min_dist = 1.0;
+    bool too_close = false;
     for (auto &i : sensor_fusion) {
         double vx = i[3]; // other car's Vx value
         double vy = i[4]; // other car's Vy value
@@ -36,16 +36,17 @@ State BehaviourPlanner::plan(std::vector<std::vector<double>>& sensor_fusion, do
         double check_car_s = i[5]; // other car's S value
         float check_car_d = i[6]; // other car's D value
 
+
         double dist_delta_s = car_s - check_car_s; // Negative values mean the other car is in the front
         dist_delta_s += prev_size*0.02*check_speed; // Predicted distance between cars, 0,02s in the future
 
         // Populate a lane segment depending on lane and distance from our car
         // left lane
-        if ((check_car_d >= 0.0) && (check_car_d <= 4.0)) {
+        if ((check_car_d >= 0.0) && (check_car_d < 4.0)) {
             occupyLane(dist_delta_s, LEFT);
         }
         // center lane
-        if ((check_car_d > 4.0) && (check_car_d <= 8.0)) {
+        if ((check_car_d >= 4.0) && (check_car_d <= 8.0)) {
             occupyLane(dist_delta_s, CENTER);
         }
         // right lane
@@ -65,32 +66,23 @@ State BehaviourPlanner::plan(std::vector<std::vector<double>>& sensor_fusion, do
         }
     }
 
-    // Print the lane occupancy for debugging purposes
-    for(int i=0; i<5; ++i) {
-        for(int j=0; j<3; ++j) {
-            std::cout << lane_occupancy[i][j] << " ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "--------------" << std::endl;
+    // set a flag if a car is too close
+    if(fabs(min_dist) < 12)
+        too_close = true;
 
-    //if(samelaneCar_s == 0) std::cout << "Lane in front is free!" << std::endl;
-    if(samelaneCar_v < 0) samelaneCar_v = 49.95; // Ensuring that if there's no car in front, the reference speed is ok
-
-    // TODO: New planner. TEST AND DEBUG!
     if(isMyLaneFree(currentLane)) {
         // if lane is free, keep the lane and cruise
         std::cout << "My lane is free. Cruising!" << std::endl;
-        return {currentLane, false, false, 49.95};
+        return {currentLane, false, false, 49.65, false};
     } else {
         if(haveCarInFront(currentLane)) { // try and overtake, if impossible - match speed
             std::cout << "Trying to overtake... ";
-            return overtakeManeuver(currentLane, samelaneCar_v);
+            return overtakeManeuver(currentLane, samelaneCar_v, currSpeed, too_close);
         }
         else // keep lane and cruise
         {
             std::cout << "No car in front! Cruising!" << std::endl;
-            return {currentLane, false, false, 49.95};
+            return {currentLane, false, false, 49.65, false};
         }
     }
 }
@@ -100,7 +92,7 @@ bool BehaviourPlanner::isLeftLaneFree() {
     for (auto &segment : lane_occupancy) {
         sum += segment[LEFT];
     }
-    return sum > 0;
+    return sum == 0;
 }
 
 bool BehaviourPlanner::isRightLaneFree() {
@@ -108,7 +100,7 @@ bool BehaviourPlanner::isRightLaneFree() {
     for (auto &segment : lane_occupancy) {
         sum += segment[RIGHT];
     }
-    return sum > 0;
+    return sum == 0;
 }
 
 bool BehaviourPlanner::isCenterLaneFree() {
@@ -116,25 +108,21 @@ bool BehaviourPlanner::isCenterLaneFree() {
     for (auto &segment : lane_occupancy) {
         sum += segment[CENTER];
     }
-    return sum > 0;
+    return sum == 0;
 }
 
 void BehaviourPlanner::occupyLane(double dist_delta_s, Lane lane) {
-    if(dist_delta_s < -60.0) lane_occupancy[FAR_FRONT][lane] += 1; // more than 60m away in the front
-    if(dist_delta_s >= -60.0 && dist_delta_s < -30.0) lane_occupancy[NEAR_FRONT][lane] += 1;
-    if(dist_delta_s >= -30.0 && dist_delta_s <= 10.0) lane_occupancy[INLINE][lane] += 1; // 30m in front to 10m to the back of the car
-    if(dist_delta_s > 10.0 && dist_delta_s <= 30.0) lane_occupancy[NEAR_REAR][lane] += 1;
-    if(dist_delta_s > 30.0) lane_occupancy[FAR_REAR][lane] += 1; // more than 30m away in the back
+    // NOTE: I intentionally discard cars too far front or back (in favor of in-situ decisions and lane change opportunities)
+    if(dist_delta_s < -15.0 && dist_delta_s > -35.0) lane_occupancy[FAR_FRONT][lane] += 1; // 15-35m further front
+    if(dist_delta_s >= -15.0 && dist_delta_s < -10.0) lane_occupancy[NEAR_FRONT][lane] += 1;
+    if(dist_delta_s >= -10.0 && dist_delta_s <= 10.0) lane_occupancy[INLINE][lane] += 1; // +-1,5 cars in front/back of the car
+    if(dist_delta_s > 10.0 && dist_delta_s <= 20.0) lane_occupancy[NEAR_REAR][lane] += 1;
+    if(dist_delta_s > 20.0 && dist_delta_s < 35.0) lane_occupancy[FAR_REAR][lane] += 1; // 20-35m further back (cautious)
 }
 
 bool BehaviourPlanner::haveCarInFront(double lane) {
     auto currentLane = (int) lane;
-    std::cout << "Front car status in lane " << lane << "is " << lane_occupancy[INLINE][currentLane] \
-                                                                + lane_occupancy[NEAR_FRONT][currentLane] \
-                                                                + lane_occupancy[FAR_FRONT][currentLane] << std::endl;
-    return (lane_occupancy[INLINE][currentLane]
-            + lane_occupancy[NEAR_FRONT][currentLane]
-            + lane_occupancy[FAR_FRONT][currentLane]) > 0;
+    return lane_occupancy[INLINE][currentLane] > 0;
 }
 
 bool BehaviourPlanner::isSameLane(double car1_d, double car2_d) {
@@ -160,40 +148,106 @@ bool BehaviourPlanner::isMyLaneFree(double lane) {
     }
 }
 
-State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front_speed) {
+State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front_speed, double curr_speed, bool too_close) {
     switch ((int)currentLane) {
         case 0: // If the car is in the left lane
             if (isCenterLaneFree()) { // and the center lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {1.0, true, false, 49.95}; // overtake
+                return {1.0, true, false, 49.65, false}; // overtake
             }
             else {
-                std::cout << "Not possible! Matching speed..." << std::endl;
-                return {currentLane, false, true, car_in_front_speed};  // else match speed
+                if(isChangeRightPossible(currentLane, curr_speed)) { // if there's a gap in the near surroundings
+                    std::cout << "Gap open! Performing overtake maneuver right..." << std::endl;
+                    return {1.0, true, false, 49.65, false};
+                }
+                else {
+                    std::cout << "Not possible! Matching speed..." << std::endl;
+                    return {currentLane, false, true, car_in_front_speed, too_close};  // else match speed
+                }
             }
         case 1:  // If the car is in the center lane
             if (isLeftLaneFree()) {  // and the left lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {0.0, true, false, 49.95};  // overtake left
+                return {0.0, true, false, 49.65, false};  // overtake left
             } else {
                 if (isRightLaneFree()) {  // or if the right lane is free
                     std::cout << "Overtake right possible! Performing maneuver..." << std::endl;
-                    return {2.0, true, false, 49.95};  // overtake right
-                } else {
-                    std::cout << "Not possible! Matching speed..." << std::endl;
-                    return {currentLane, false, true, car_in_front_speed}; // else match speed
+                    return {2.0, true, false, 49.65, false};  // overtake right
+                } else { // see if there's a gap in the near surroundings
+                    if(isChangeLeftPossible(currentLane, curr_speed)) {
+                        std::cout << "Gap open! Performing overtake maneuver left..." << std::endl;
+                        return {0.0, true, false, 49.65, too_close};
+                    } else {
+                        if(isChangeRightPossible(currentLane, curr_speed)) {
+                            std::cout << "Gap open! Performing overtake maneuver right..." << std::endl;
+                            return {2.0, true, false, 49.65, too_close};
+                        }
+                        else {
+                            std::cout << "Not possible! Matching speed..." << std::endl;
+                            return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
+                        }
+                    }
                 }
             }
         case 2:  // If the car is in the right lane
             if (isCenterLaneFree()) {  // and the center lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {1.0, true, false, 49.95};  // overtake left
+                return {1.0, true, false, 49.65, false};  // overtake left
             } else {
-                std::cout << "Not possible! Matching speed..." << std::endl;
-                return {currentLane, false, true, car_in_front_speed}; // else match speed
+                if(isChangeLeftPossible(currentLane, curr_speed)) {
+                    std::cout << "Gap open! Performing overtake maneuver left..." << std::endl;
+                    return {1.0, true, false, 49.65, too_close};
+                } else {
+                    std::cout << "Not possible! Matching speed..." << std::endl;
+                    return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
+                }
+
             }
         default: // keep lane
             std::cout << "Not possible! Matching speed..." << std::endl;
-            return {currentLane, false, true, car_in_front_speed};
+            return {currentLane, false, true, car_in_front_speed, too_close};
+    }
+}
+
+bool BehaviourPlanner::isChangeLeftPossible(double lane, double speed) {
+    if(speed < 35.0) // don't allow lane changes at low speed (dangerous)
+        return false;
+
+    // see if the nearby surroundings are clear for overtaking
+    auto l = (int) lane;
+    switch (l) {
+        case 0:
+            return false;
+        case 1:
+            return (lane_occupancy[INLINE][LEFT]
+                   + lane_occupancy[NEAR_FRONT][LEFT]
+                   + lane_occupancy[NEAR_REAR][LEFT]) == 0;
+        case 2:
+            return (lane_occupancy[INLINE][CENTER]
+                   + lane_occupancy[NEAR_FRONT][CENTER]
+                   + lane_occupancy[NEAR_REAR][CENTER]) == 0;
+        default:
+            return false;
+    }
+}
+
+bool BehaviourPlanner::isChangeRightPossible(double lane, double speed) {
+    if(speed < 35.0) // don't allow lane changes at low speed (dangerous)
+        return false;
+    // see if the nearby surroundings are clear for overtaking
+    auto l = (int) lane;
+    switch (l) {
+        case 0:
+            return (lane_occupancy[INLINE][CENTER]
+                   + lane_occupancy[NEAR_FRONT][CENTER]
+                   + lane_occupancy[NEAR_REAR][CENTER]) == 0;
+        case 1:
+            return (lane_occupancy[INLINE][RIGHT]
+                   + lane_occupancy[NEAR_FRONT][RIGHT]
+                   + lane_occupancy[NEAR_REAR][RIGHT]) == 0;
+        case 2:
+            return false;
+        default:
+            return false;
     }
 }
