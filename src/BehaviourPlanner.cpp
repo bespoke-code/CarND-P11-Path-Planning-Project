@@ -156,14 +156,8 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
                 return {1.0, true, false, 49.65, false}; // overtake
             }
             else {
-                if(isChangeRightPossible(currentLane, curr_speed)) { // if there's a gap in the near surroundings
-                    std::cout << "Gap open! Performing overtake maneuver right..." << std::endl;
-                    return {1.0, true, false, 49.65, false};
-                }
-                else {
-                    std::cout << "Not possible! Matching speed..." << std::endl;
-                    return {currentLane, false, true, car_in_front_speed, too_close};  // else match speed
-                }
+                std::cout << "Not possible! Matching speed..." << std::endl;
+                return {currentLane, false, true, car_in_front_speed, too_close};  // else match speed
             }
         case 1:  // If the car is in the center lane
             if (isLeftLaneFree()) {  // and the left lane is free
@@ -173,20 +167,9 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
                 if (isRightLaneFree()) {  // or if the right lane is free
                     std::cout << "Overtake right possible! Performing maneuver..." << std::endl;
                     return {2.0, true, false, 49.65, false};  // overtake right
-                } else { // see if there's a gap in the near surroundings
-                    if(isChangeLeftPossible(currentLane, curr_speed)) {
-                        std::cout << "Gap open! Performing overtake maneuver left..." << std::endl;
-                        return {0.0, true, false, 49.65, too_close};
-                    } else {
-                        if(isChangeRightPossible(currentLane, curr_speed)) {
-                            std::cout << "Gap open! Performing overtake maneuver right..." << std::endl;
-                            return {2.0, true, false, 49.65, too_close};
-                        }
-                        else {
-                            std::cout << "Not possible! Matching speed..." << std::endl;
-                            return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
-                        }
-                    }
+                } else {
+                    std::cout << "Not possible! Matching speed..." << std::endl;
+                    return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
                 }
             }
         case 2:  // If the car is in the right lane
@@ -194,14 +177,8 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
                 return {1.0, true, false, 49.65, false};  // overtake left
             } else {
-                if(isChangeLeftPossible(currentLane, curr_speed)) {
-                    std::cout << "Gap open! Performing overtake maneuver left..." << std::endl;
-                    return {1.0, true, false, 49.65, too_close};
-                } else {
-                    std::cout << "Not possible! Matching speed..." << std::endl;
-                    return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
-                }
-
+                std::cout << "Not possible! Matching speed..." << std::endl;
+                return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
             }
         default: // keep lane
             std::cout << "Not possible! Matching speed..." << std::endl;
@@ -220,12 +197,12 @@ bool BehaviourPlanner::isChangeLeftPossible(double lane, double speed) {
             return false;
         case 1:
             return (lane_occupancy[INLINE][LEFT]
-                   + lane_occupancy[NEAR_FRONT][LEFT]
-                   + lane_occupancy[NEAR_REAR][LEFT]) == 0;
+                    + lane_occupancy[NEAR_FRONT][LEFT]
+                    + lane_occupancy[NEAR_REAR][LEFT]) == 0;
         case 2:
             return (lane_occupancy[INLINE][CENTER]
-                   + lane_occupancy[NEAR_FRONT][CENTER]
-                   + lane_occupancy[NEAR_REAR][CENTER]) == 0;
+                    + lane_occupancy[NEAR_FRONT][CENTER]
+                    + lane_occupancy[NEAR_REAR][CENTER]) == 0;
         default:
             return false;
     }
@@ -239,12 +216,12 @@ bool BehaviourPlanner::isChangeRightPossible(double lane, double speed) {
     switch (l) {
         case 0:
             return (lane_occupancy[INLINE][CENTER]
-                   + lane_occupancy[NEAR_FRONT][CENTER]
-                   + lane_occupancy[NEAR_REAR][CENTER]) == 0;
+                    + lane_occupancy[NEAR_FRONT][CENTER]
+                    + lane_occupancy[NEAR_REAR][CENTER]) == 0;
         case 1:
             return (lane_occupancy[INLINE][RIGHT]
-                   + lane_occupancy[NEAR_FRONT][RIGHT]
-                   + lane_occupancy[NEAR_REAR][RIGHT]) == 0;
+                    + lane_occupancy[NEAR_FRONT][RIGHT]
+                    + lane_occupancy[NEAR_REAR][RIGHT]) == 0;
         case 2:
             return false;
         default:

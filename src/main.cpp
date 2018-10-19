@@ -343,7 +343,7 @@ int main() {
 
                         if(ref_speed > newState.getReferenceVelocity()
                            && (ref_speed-0.224 > 0)) {
-                            if(ref_speed >= 30.0 && newState.isCarTooClose()) // avoid slowing too much
+                            if(ref_speed >= 35.0 && newState.isCarTooClose()) // avoid slowing too much
                                 ref_speed -= 0.224; //0.224; // decelerate
                         }
                         if (ref_speed < newState.getReferenceVelocity()
@@ -366,6 +366,8 @@ int main() {
                         next_x_vals.push_back(x_pt);
                         next_y_vals.push_back(y_pt);
                     }
+
+                    // We must update the most recent speed to ensure smooth transitions between states
                     newState.updateRefVelocity(ref_speed);
                     // Set the current car's state to the new state
                     state = newState;
@@ -374,7 +376,7 @@ int main() {
 
                     auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
-                    //this_thread::sleep_for(chrono::milliseconds(1000));
+                    this_thread::sleep_for(chrono::milliseconds(50));
                     ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
                 }
