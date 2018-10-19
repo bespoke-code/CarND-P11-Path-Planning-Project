@@ -30,9 +30,9 @@ The behaviour planner (`BehaviourPlanner.h, BehaviourPlanner.cpp`) module is the
 of this path planner. The other part is the waypoint generation code, found in `main.cpp, lines 265-368`.
 
 The behaviour of the car facilitates a line occupancy matrix in order to classify lane availability and
-check for possible lane changes (`BehaviourPlanner.cpp, lines 45-57`. Due to the explicit safety requirements listed in the project,
-lane changes are performed *only* when an adjacent lane is empty (in other words, I make sure that the car doesn't crash).
-The behaviour planner prefers keeping lanes unless other car's are detected on the horizon
+check for possible lane changes (`BehaviourPlanner.cpp, lines 45-57`). Due to the explicit safety requirements listed in the project,
+lane changes are performed **only** when an adjacent lane is empty (in other words, I make sure that the car doesn't crash).
+The behaviour planner prefers keeping lanes unless other cars are detected on the horizon
 and there is sufficient room to make a lane change.
 
 A state (`State.h, State.cpp`) class is implemented to keep several parameters describing a state.
