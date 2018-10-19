@@ -8,10 +8,12 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
+
+#include "State.h"
 #include "PathPlanner.h"
 #include "BehaviourPlanner.h"
-#include "MovementPredictor.h"
-#include "spline.h"
+
 
 
 using namespace std;
@@ -168,9 +170,11 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 int main() {
     uWS::Hub h;
-    MovementPredictor predictor;
     PathPlanner pathPlanner;
     BehaviourPlanner behaviourPlanner;
+
+    // initial state
+    State state(1, 0.0);
 
     // Load up map values for waypoint's x,y,s and d normalized normal vectors
     vector<double> map_waypoints_x;
@@ -183,10 +187,6 @@ int main() {
     string map_file_ = "../data/highway_map.csv";
     // The max s value before wrapping around the track back to 0
     double max_s = 6945.554;
-
-    // TODO: Parameters!
-    double lane = 1;
-    double ref_speed = 0.0; //MPH
 
     ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -210,7 +210,7 @@ int main() {
         map_waypoints_dy.push_back(d_y);
     }
 
-    h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane, &ref_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+    h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s, &map_waypoints_dx,&map_waypoints_dy, &state, &behaviourPlanner, &pathPlanner](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                                                                                                                            uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
@@ -245,56 +245,24 @@ int main() {
                     double end_path_d = j[1]["end_path_d"];
 
                     // Sensor Fusion Data, a list of all other cars on the same side of the road.
-                    auto sensor_fusion = j[1]["sensor_fusion"];
+                    std::vector<std::vector<double>> sensor_fusion = j[1]["sensor_fusion"];
 
                     json msgJson;
 
                     vector<double> next_x_vals;
                     vector<double> next_y_vals;
 
-                    // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-
-                    int prev_size = previous_path_x.size();
-
                     //// SENSOR PART
-                    bool too_close = false;
+                    int prev_size = previous_path_x.size();
 
                     if(prev_size > 0) {
                         car_s = end_path_s;
                     }
 
-                    for (auto &i : sensor_fusion) {
-                        // Car in my lane
-                        float d = i[6]; // other car's D value
-                        if(d < (2+4*lane+2) && d > (2+4*lane-2)) {
-                            double vx = i[3]; // other car's Vx value
-                            double vy = i[4]; // other car's Vy value
-                            double check_speed = std::sqrt(vx*vx + vy*vy);
-                            double check_car_s = i[5]; // other car's S value
+                    // Get the new car state
+                    State newState = behaviourPlanner.plan(sensor_fusion, state.getLane(), prev_size, car_s);
 
-                            // if using previous points can project s value out
-                            check_car_s += ((double)prev_size*0.02*check_speed); // predicted position 0,02s in the future
-
-                            // check s values greater than mine and s gap
-                            if((check_car_s > car_s) && ((check_car_s-car_s) < 30.0)) {
-                                // Do some logic here, lower reference velocity so we don't crash into the car in front of us
-                                // Could also flag to try to change lanes
-                                ref_speed = 30.0; // MPH
-                                too_close = true;
-
-                                if(lane == 1) {
-                                    lane = 0;
-                                }
-                            }
-                        }
-                    }
-
-                    if(too_close) {
-                        ref_speed -= 0.224; // MPH
-                    } else if (ref_speed < 49.65) { // MPH
-                        ref_speed += 0.224; // MPH
-                    }
-
+                    // Define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
                     double ref_x = car_x;
                     double ref_y = car_y;
                     double ref_yaw = deg2rad(car_yaw);
@@ -328,9 +296,9 @@ int main() {
                     }
 
                     // Get points in Frenet coordinates, spaced evenly at 30m ahead of the starting reference
-                    std::vector<double> next_wp0 = getXY(car_s+30, 2+4*lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                    std::vector<double> next_wp1 = getXY(car_s+60, 2+4*lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                    std::vector<double> next_wp2 = getXY(car_s+90, 2+4*lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                    std::vector<double> next_wp0 = getXY(car_s+30, 2+4*newState.getLane(), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                    std::vector<double> next_wp1 = getXY(car_s+60, 2+4*newState.getLane(), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                    std::vector<double> next_wp2 = getXY(car_s+90, 2+4*newState.getLane(), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
                     ptsx.push_back(next_wp0[0]);
                     ptsx.push_back(next_wp1[0]);
@@ -367,8 +335,19 @@ int main() {
 
                     double x_add_on = 0;
 
+                    double ref_speed = state.getReferenceVelocity();
+                    if(ref_speed > newState.getReferenceVelocity()
+                       && (ref_speed-0.224 > 0)) {
+                        ref_speed -= 0.224; // decelerate
+                    }
+                    if (ref_speed < newState.getReferenceVelocity()
+                        && (ref_speed+0.224 < 49.65)) {
+                        ref_speed += 0.224; // accelerate
+                    }
+
                     // Generate the rest of the points
                     for(int i=1; i<=50-previous_path_x.size(); ++i) {
+
                         double N = (target_dist/(0.02*ref_speed/2.24));
                         double x_pt = x_add_on + target_x/N;
                         double y_pt = spline(x_pt);
@@ -385,34 +364,8 @@ int main() {
                         next_y_vals.push_back(y_pt);
                     }
 
-
-                    /*
-                    // TODO: Predict the movement of each car currently in sensor fusion
-                    std::vector<auto> movement(sizeof(sensor_fusion)); // TODO: find sensor fusion type!
-                    for(auto car: sensor_fusion) {
-                        std::vector<double> car_frenet(2);
-                        car_frenet.push_back(car[0]);
-                        car_frenet.push_back(car[1]);// TODO: Check
-                        movement.push_back(predictor.predict(car_frenet));
-                    }
-
-                    // TODO: Plan car's behaviour and generate global waypoints
-                    std::vector<double> behaviour = behaviourPlanner.plan(); // TODO: Add arguments! Typedef struct <T,Q> ?
-                    // TODO: Interpolate a path using the global waypoints
-                    double car_intention = behaviour[0]; // TODO: Replace with ENUM type
-                    std::vector<double> global_waypoints(behaviour.size());
-                    for(int i=1; i<behaviour.size(); ++i) {
-                        global_waypoints.push_back(behaviour[i]);
-                    }
-                    std::vector<double> carPath = pathPlanner.generatePath(global_waypoints); // TODO: CHECK SIGNATURE!
-
-                    for(int i=0; i<carPath.size(); i+=2) {
-                        // TODO: Convert from frenet to XY if necessary here!
-                        next_x_vals.push_back(carPath[i]);
-                        next_y_vals.push_back(carPath[i+1]);
-                    }
-                    */
-
+                    // Set the current car's state to the new state
+                    state = newState;
                     msgJson["next_x"] = next_x_vals;
                     msgJson["next_y"] = next_y_vals;
 

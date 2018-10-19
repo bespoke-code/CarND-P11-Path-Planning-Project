@@ -13,7 +13,7 @@ private:
 
 public:
     PathPlanner();
-    std::vector<double> generatePath(const std::vector<double>& waypoints);
+    std::vector<std::vector<double>> generatePath(const std::vector<double>& waypoints);
 
 
 };
