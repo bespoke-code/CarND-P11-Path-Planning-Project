@@ -12,6 +12,9 @@
 enum Distance { FAR_FRONT=0, NEAR_FRONT, INLINE, NEAR_REAR, FAR_REAR};
 enum Lane { LEFT=0, CENTER, RIGHT };
 
+const double SPEED_LIMIT = 49.65;
+const double MIN_SPEED = 30.0;
+
 class BehaviourPlanner {
 private:
     int lane_occupancy[5][3];

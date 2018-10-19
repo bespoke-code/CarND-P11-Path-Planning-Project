@@ -6,6 +6,8 @@
 #include <cmath>
 #include <iostream>
 
+
+
 BehaviourPlanner::BehaviourPlanner() {
     // initialize with an empty lane set
     for(int lane=0; lane<3; ++lane) { // lane
@@ -26,7 +28,7 @@ State BehaviourPlanner::plan(nlohmann::basic_json<std::map, std::vector, std::st
     // Re-populate the lane occupancy matrix using the sensor fusion data
     // Find the closest car in front and in our lane, if there is one
     double samelaneCar_s = 1.0;
-    double samelaneCar_v = 49.65;
+    double samelaneCar_v = SPEED_LIMIT;
     double min_dist = 1.0;
     bool too_close = false;
     for (auto &i : sensor_fusion) {
@@ -73,7 +75,7 @@ State BehaviourPlanner::plan(nlohmann::basic_json<std::map, std::vector, std::st
     if(isMyLaneFree(currentLane)) {
         // if lane is free, keep the lane and cruise
         std::cout << "My lane is free. Cruising!" << std::endl;
-        return {currentLane, false, false, 49.65, false};
+        return {currentLane, false, false, SPEED_LIMIT, false};
     } else {
         if(haveCarInFront(currentLane)) { // try and overtake, if impossible - match speed
             std::cout << "Trying to overtake... ";
@@ -82,7 +84,7 @@ State BehaviourPlanner::plan(nlohmann::basic_json<std::map, std::vector, std::st
         else // keep lane and cruise
         {
             std::cout << "No car in front! Cruising!" << std::endl;
-            return {currentLane, false, false, 49.65, false};
+            return {currentLane, false, false, SPEED_LIMIT, false};
         }
     }
 }
@@ -153,7 +155,7 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
         case 0: // If the car is in the left lane
             if (isCenterLaneFree()) { // and the center lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {1.0, true, false, 49.65, false}; // overtake
+                return {1.0, true, false, SPEED_LIMIT, false}; // overtake
             }
             else {
                 std::cout << "Not possible! Matching speed..." << std::endl;
@@ -162,11 +164,11 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
         case 1:  // If the car is in the center lane
             if (isLeftLaneFree()) {  // and the left lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {0.0, true, false, 49.65, false};  // overtake left
+                return {0.0, true, false, SPEED_LIMIT, false};  // overtake left
             } else {
                 if (isRightLaneFree()) {  // or if the right lane is free
                     std::cout << "Overtake right possible! Performing maneuver..." << std::endl;
-                    return {2.0, true, false, 49.65, false};  // overtake right
+                    return {2.0, true, false, SPEED_LIMIT, false};  // overtake right
                 } else {
                     std::cout << "Not possible! Matching speed..." << std::endl;
                     return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed
@@ -175,7 +177,7 @@ State BehaviourPlanner::overtakeManeuver(double currentLane, double car_in_front
         case 2:  // If the car is in the right lane
             if (isCenterLaneFree()) {  // and the center lane is free
                 std::cout << "Overtake left possible! Performing maneuver..." << std::endl;
-                return {1.0, true, false, 49.65, false};  // overtake left
+                return {1.0, true, false, SPEED_LIMIT, false};  // overtake left
             } else {
                 std::cout << "Not possible! Matching speed..." << std::endl;
                 return {currentLane, false, true, car_in_front_speed, too_close}; // else match speed

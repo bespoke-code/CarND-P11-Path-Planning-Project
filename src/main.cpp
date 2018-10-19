@@ -343,11 +343,11 @@ int main() {
 
                         if(ref_speed > newState.getReferenceVelocity()
                            && (ref_speed-0.224 > 0)) {
-                            if(ref_speed >= 35.0 && newState.isCarTooClose()) // avoid slowing too much
+                            if(ref_speed >= MIN_SPEED && newState.isCarTooClose()) // avoid slowing too much
                                 ref_speed -= 0.224; //0.224; // decelerate
                         }
                         if (ref_speed < newState.getReferenceVelocity()
-                            && (ref_speed+0.224 < 49.65)) {
+                            && (ref_speed+0.224 < SPEED_LIMIT)) {
                             ref_speed += 0.224; // accelerate
                         }
 
